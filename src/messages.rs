@@ -38,39 +38,40 @@ pub enum UserMessage<'a> {
     InvalidMessage,
 }
 
-pub fn parse_message(msg: &str) -> UserMessage {
-    dbg!(&msg);
+fn split(msg: &str) -> Vec<&str>{
     let parts = msg.split(" ");
-    let collection = parts.collect::<Vec<&str>>();
-    let head = collection.first();
+    parts.collect::<Vec<&str>>()
+}
 
-    if let None = head {
-        return UserMessage::InvalidMessage;
-    }
-
-    let head = *head.unwrap();
-
+pub fn parse_message(msg: &str) -> UserMessage {
+    let space_index = msg.find(' ').unwrap_or_default();
+    let head = &msg[0..space_index];
+    let body = &msg[space_index+1..];
+    dbg!((head, body));
     match head {
-        "NICK" => parse_nick(collection),
-        "USER" => parse_user(collection),
+        "NICK" => parse_nick(split(body)),
+        "USER" => parse_user(split(body)),
         "PASS" => {
-            if let Some(password) = collection.get(1) {
+            let parts = split(body);
+            if let Some(password) = parts.get(0) {
                 return UserMessage::Password { password };
             } else {
                 UserMessage::InvalidMessage
             }
         }
-        "PRIVMSG" => parse_priv_msg(collection),
+        "PRIVMSG" => parse_priv_msg(body),
         "QUIT" => {
-            let quit_msg = collection.get(1).map(|str| *str);
+            let parts = split(body);
+            let quit_msg = parts.get(0).map(|str| *str);
             UserMessage::Quit { quit_msg }
         }
-        "JOIN" => parse_join_msg(collection),
+        "JOIN" => parse_join_msg(split(body)),
         "PING" => {
-            let server = collection.get(1).map(|str| *str).unwrap_or("");
+            let parts = split(body);
+            let server = parts.get(0).map(|str| *str).unwrap_or("");
             UserMessage::Ping { server: server.trim() }
         }
-        "MODE" => parse_mode_msg(collection),
+        "MODE" => parse_mode_msg(split(body)),
 
         _ => UserMessage::InvalidMessage,
     }
@@ -78,11 +79,11 @@ pub fn parse_message(msg: &str) -> UserMessage {
 
 fn parse_nick<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
     match &input[..] {
-        [_, nickname] => UserMessage::Nick {
+        [nickname] => UserMessage::Nick {
             nickname: &nickname.trim(),
             hop_count: 0,
         },
-        [_, nickname, hop_str, ..] => {
+        [nickname, hop_str, ..] => {
             let hop = hop_str.parse::<usize>();
             if let Ok(hop_count) = hop {
                 UserMessage::Nick {
@@ -98,7 +99,7 @@ fn parse_nick<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
 }
 
 fn parse_user<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
-    if let [_, user_name, server_name, host_name, real_name, ..] = &input[..] {
+    if let [user_name, server_name, host_name, real_name, ..] = &input[..] {
         return UserMessage::User {
             user_name: &user_name.trim(),
             host_name: &host_name.trim(),
@@ -110,23 +111,27 @@ fn parse_user<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
     UserMessage::InvalidMessage
 }
 
-fn parse_priv_msg<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
-    match &input[..] {
-        [_, channel, message, ..] if channel.starts_with("#") => {
-            UserMessage::MessageToChannel { channel, message }
-        }
-        [_, recs, message, ..] => {
-            let parts = recs.split(",");
-            let receivers = parts.collect::<Vec<&str>>();
-            UserMessage::PrivateMessage { receivers, message }
-        }
-        _ => UserMessage::InvalidMessage,
+fn parse_priv_msg<'a>(input: &'a str) -> UserMessage<'a> {
+    let space_index = input.find(' ').unwrap_or_default();
+    let head = &input[0..space_index];
+    let body = &input[space_index+1..];
+
+    if head == "" {
+        return UserMessage::InvalidMessage;
     }
+    
+    if head.starts_with("#") {
+        return UserMessage::MessageToChannel { channel: head, message: body };
+    }
+
+    let parts = head.split(",");
+    let receivers = parts.collect::<Vec<&str>>();
+    UserMessage::PrivateMessage { receivers: receivers, message: body }
 }
 
 fn parse_join_msg<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
     match &input[..] {
-        [_, channels] => {
+        [channels] => {
             let parts = channels.split(",");
             let channels = parts.collect::<Vec<&str>>();
 
@@ -135,7 +140,7 @@ fn parse_join_msg<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
                 keys: vec![],
             }
         }
-        [_, channels, keys, ..] => {
+        [channels, keys, ..] => {
             let parts = channels.split(",");
             let channels = parts.collect::<Vec<&str>>();
 
@@ -150,11 +155,11 @@ fn parse_join_msg<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
 
 fn parse_mode_msg<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
     match &input[..] {
-        [_, channel] => UserMessage::Mode {
+        [channel] => UserMessage::Mode {
             channel,
             mode: None,
         },
-        [_, channel, mode, ..] => UserMessage::Mode {
+        [channel, mode, ..] => UserMessage::Mode {
             channel,
             mode: Some(*mode),
         },
