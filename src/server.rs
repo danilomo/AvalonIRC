@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::future::Future;
 use std::net::SocketAddr;
 
 use crate::connections::Connections;
@@ -41,7 +42,7 @@ impl Server {
         let (sender, mut receiver) = channel::<String>(10);
         let mut user_connection = self.connections.register_connection(addr, sender)?;
 
-        tokio::spawn(async move {
+        let future = async move {
             loop {
                 let mut message = String::new();
 
@@ -60,7 +61,9 @@ impl Server {
                     }
                 };
             }
-        });
+        };
+
+        tokio::spawn(future);
 
         Ok(())
     }

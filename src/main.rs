@@ -1,3 +1,4 @@
+mod channels;
 mod connections;
 mod errorcodes;
 mod messages;

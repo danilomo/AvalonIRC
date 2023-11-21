@@ -38,7 +38,7 @@ pub enum UserMessage<'a> {
     InvalidMessage,
 }
 
-fn split(msg: &str) -> Vec<&str>{
+fn split(msg: &str) -> Vec<&str> {
     let parts = msg.split(" ");
     parts.collect::<Vec<&str>>()
 }
@@ -46,7 +46,7 @@ fn split(msg: &str) -> Vec<&str>{
 pub fn parse_message(msg: &str) -> UserMessage {
     let space_index = msg.find(' ').unwrap_or_default();
     let head = &msg[0..space_index];
-    let body = &msg[space_index+1..];
+    let body = &msg[space_index + 1..];
     dbg!((head, body));
     match head {
         "NICK" => parse_nick(split(body)),
@@ -69,7 +69,9 @@ pub fn parse_message(msg: &str) -> UserMessage {
         "PING" => {
             let parts = split(body);
             let server = parts.get(0).map(|str| *str).unwrap_or("");
-            UserMessage::Ping { server: server.trim() }
+            UserMessage::Ping {
+                server: server.trim(),
+            }
         }
         "MODE" => parse_mode_msg(split(body)),
 
@@ -114,19 +116,25 @@ fn parse_user<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
 fn parse_priv_msg<'a>(input: &'a str) -> UserMessage<'a> {
     let space_index = input.find(' ').unwrap_or_default();
     let head = &input[0..space_index];
-    let body = &input[space_index+1..];
+    let body = &input[space_index + 1..];
 
     if head == "" {
         return UserMessage::InvalidMessage;
     }
-    
+
     if head.starts_with("#") {
-        return UserMessage::MessageToChannel { channel: head, message: body };
+        return UserMessage::MessageToChannel {
+            channel: head,
+            message: body,
+        };
     }
 
     let parts = head.split(",");
     let receivers = parts.collect::<Vec<&str>>();
-    UserMessage::PrivateMessage { receivers: receivers, message: body }
+    UserMessage::PrivateMessage {
+        receivers: receivers,
+        message: body,
+    }
 }
 
 fn parse_join_msg<'a>(input: Vec<&'a str>) -> UserMessage<'a> {

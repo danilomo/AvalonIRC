@@ -8,11 +8,11 @@ use std::{
 
 use tokio::sync::mpsc::Sender;
 
-use crate::{errorcodes, messages::UserMessage, user::User};
+use crate::{channels::Channels, errorcodes, messages::UserMessage, user::User};
 type ConnectionsMap = HashMap<SocketAddr, Sender<String>>;
 type NicksMap = HashMap<String, Sender<String>>;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 
 const HOST: &str = "localhost";
 
@@ -20,6 +20,7 @@ const HOST: &str = "localhost";
 pub struct Connections {
     connection_map: Arc<Mutex<ConnectionsMap>>,
     nicks_map: Arc<Mutex<NicksMap>>,
+    channels: Arc<Mutex<Channels>>,
 }
 
 impl Connections {
@@ -27,6 +28,7 @@ impl Connections {
         Connections {
             connection_map: Arc::new(Mutex::new(HashMap::new())),
             nicks_map: Arc::new(Mutex::new(HashMap::new())),
+            channels: Arc::new(Mutex::new(Channels::new())),
         }
     }
 
@@ -35,54 +37,52 @@ impl Connections {
         address: SocketAddr,
         sender: Sender<String>,
     ) -> Result<UserConnection> {
-        if let Ok(mut map) = self.connection_map.lock() {
-            map.insert(address, sender.clone());
+        let mut map = self.connection_map.lock().unwrap();
 
-            return Ok(UserConnection {
-                connections: self.clone(),
-                sender,
-                user: User::new(),
-                authenticated: false,
-            });
-        }
+        map.insert(address, sender.clone());
 
-        Err(anyhow!("Failed to obtain mutex for connection_map"))
+        return Ok(UserConnection {
+            connections: self.clone(),
+            sender,
+            user: User::new(),
+            authenticated: false,
+        });
     }
 
     fn set_nick_if_available(&mut self, sender: Sender<String>, nick: &str) -> Result<bool> {
-        if let Ok(mut map) = self.nicks_map.lock() {
-            if map.contains_key(nick) {
-                return Ok(false);
-            }
+        let mut map = self.nicks_map.lock().unwrap();
 
-            map.insert(nick.into(), sender);
-            return Ok(true);
+        if map.contains_key(nick) {
+            return Ok(false);
         }
 
-        Err(anyhow!("Failed to obtain mutex for connectino_map"))
+        map.insert(nick.into(), sender);
+        return Ok(true);
     }
 
-    async fn send_msg_to_nicks(&mut self, user: &str, message: &str, nicks: &[&str]) {
-        let mut senders = vec![];
-        if let Ok(map) = self.nicks_map.lock() {
+    async fn send_msg_to_nicks(
+        &mut self,
+        user: &str,
+        message: &str,
+        nicks: impl Iterator<Item = &str>,
+    ) {
+        let senders = {
+            let mut senders = vec![];
+            let map = self.nicks_map.lock().unwrap();
+
             for nick in nicks {
-                if let Some(sender) = map.get(*nick) {
+                if let Some(sender) = map.get(nick) {
                     let sender = sender.clone();
                     senders.push((nick, sender));
                 }
             }
-        }
+            senders
+        };
 
         for (nick, sender) in senders {
-            let message_to_send = format!(
-                "{} PRIVMSG {} {}\r\n",
-                user,
-                nick,
-                message
-            );
+            let message_to_send = format!("{} PRIVMSG {} {}\r\n", user, nick, message);
             sender.send(message_to_send).await;
         }
-
     }
 }
 
@@ -94,7 +94,11 @@ pub struct UserConnection {
 }
 
 impl UserConnection {
-    pub async fn handle_message<'a>(&mut self, message: &UserMessage<'a>) -> Result<()> {
+    pub async fn handle_message<'a>(&mut self, message: &UserMessage<'a>) {
+        let _ = self.handle_message_aux(message).await;
+    }
+
+    async fn handle_message_aux<'a>(&mut self, message: &UserMessage<'a>) -> Result<()> {
         match message {
             UserMessage::Nick {
                 nickname,
@@ -114,12 +118,13 @@ impl UserConnection {
             }
             UserMessage::Password { password } => self.set_password(password).await?,
             UserMessage::PrivateMessage { receivers, message } => {
-                self.send_priv_msg(receivers, message).await?
+                self.send_priv_msg(receivers.iter().map(|s| *s), message)
+                    .await?
             }
             UserMessage::MessageToChannel { channel, message } => {
                 self.send_msg_to_channel(channel, message).await?
             }
-            UserMessage::Join { channels, keys } => self.join_channel(channels, keys).await?,
+            UserMessage::Join { channels, keys } => self.join_channels(channels, keys).await?,
             UserMessage::Quit { quit_msg } => self.quit(*quit_msg).await?,
             UserMessage::Ping { server } => self.ping(server).await?,
             UserMessage::Mode { channel, mode } => self.set_mode(channel, *mode).await?,
@@ -177,14 +182,11 @@ impl UserConnection {
         todo!()
     }
 
-    async fn send_priv_msg(&mut self, receivers: &[&str], message: &str) -> Result<()> {
-        /*
-        let message_to_send = format!(
-            "PRIVMSG {} {}\r\n",
-            self.user.nick.as_ref().unwrap(),
-            message
-        );
-        */
+    async fn send_priv_msg(
+        &mut self,
+        receivers: impl Iterator<Item = &str>,
+        message: &str,
+    ) -> Result<()> {
         let sender = format!(
             ":{}!{}@{}",
             self.user.nick.as_ref().unwrap(),
@@ -203,8 +205,25 @@ impl UserConnection {
         todo!()
     }
 
-    async fn join_channel(&self, channels: &[&str], keys: &[&str]) -> Result<()> {
-        todo!()
+    async fn join_channels(&self, channels_names: &[&str], keys: &[&str]) -> Result<()> {
+        let channels = self.connections.channels.lock().unwrap();
+        let nick = self.user.nick.as_ref().context("aaaa")?;
+
+        for channel_name in channels_names {
+            let nicks = channels.channel_list(channel_name).filter(|s| **s == *nick);
+        }
+
+        /*if let (Ok(chans),Some(nick)) = (channels, nick) {
+            for channel_name in channels_names {
+                let nicks = chans
+                    .channel_list(channel_name)
+                    .filter();
+
+
+            }
+        }*/
+
+        Ok(())
     }
 
     async fn quit(&self, quit_msg: Option<&str>) -> Result<()> {
