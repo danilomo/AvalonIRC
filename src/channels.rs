@@ -4,6 +4,10 @@ use std::collections::HashSet;
 
 static EMPTY_SET: Lazy<HashSet<String>> = Lazy::new(|| HashSet::new());
 
+#[cfg(test)]
+#[path = "./channels_test.rs"]
+mod channels_test;
+
 pub struct Channels {
     channels_map: HashMap<String, HashSet<String>>,
 }

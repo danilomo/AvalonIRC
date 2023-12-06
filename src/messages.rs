@@ -1,4 +1,8 @@
-#[derive(Debug)]
+#[cfg(test)]
+#[path = "./messages_test.rs"]
+mod messages_test;
+
+#[derive(Debug, PartialEq)]
 pub enum UserMessage<'a> {
     Nick {
         nickname: &'a str,
@@ -47,7 +51,7 @@ pub fn parse_message(msg: &str) -> UserMessage {
     let space_index = msg.find(' ').unwrap_or_default();
     let head = &msg[0..space_index];
     let body = &msg[space_index + 1..];
-    dbg!((head, body));
+
     match head {
         "NICK" => parse_nick(split(body)),
         "USER" => parse_user(split(body)),
@@ -86,17 +90,21 @@ fn parse_nick<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
             hop_count: 0,
         },
         [nickname, hop_str, ..] => {
-            let hop = hop_str.parse::<usize>();
+            let hop = hop_str.trim().parse::<usize>();
             if let Ok(hop_count) = hop {
                 UserMessage::Nick {
                     nickname: &nickname.trim(),
                     hop_count,
                 }
             } else {
+                println!("Piu");
                 UserMessage::InvalidMessage
             }
         }
-        _ => UserMessage::InvalidMessage,
+        _ => {
+            println!("Piu piu");
+            UserMessage::InvalidMessage
+        }
     }
 }
 

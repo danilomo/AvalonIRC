@@ -7,11 +7,12 @@ mod user;
 
 use anyhow::Result;
 use server::Server;
-use tokio;
+use tokio::{self, net::TcpListener};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut server = Server::new();
+    let listener = TcpListener::bind(format!("localhost:6667")).await?;
+    let mut server = Server::new(listener);
 
     server.start_server().await?;
     Ok(())
