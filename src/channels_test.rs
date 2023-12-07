@@ -38,9 +38,8 @@ fn test_list_users() {
         .channel_list("#room1")
         .map(|s| s.to_owned())
         .collect::<HashSet<_>>();
-    
+
     assert_eq!(expected_users, actual_users);
 
     assert!(channels.channel_list("#room2").count() == 0);
 }
-

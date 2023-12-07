@@ -16,8 +16,8 @@ use tokio::sync::mpsc::channel;
 mod server_test;
 
 pub struct Server {
-    connections: Connections,
-    listener: TcpListener,
+    pub connections: Connections,
+    pub listener: TcpListener,
 }
 
 impl Server {
@@ -58,6 +58,7 @@ impl Server {
                     from_client = reader.read_line(&mut message) => {
                         if let Ok(_) = from_client {
                             let msg = parse_message(&message);
+                            println!("{:?}", &msg);
                             let _ = user_connection.handle_message(&msg).await;
                         }
                     },

@@ -8,6 +8,7 @@ static EMPTY_SET: Lazy<HashSet<String>> = Lazy::new(|| HashSet::new());
 #[path = "./channels_test.rs"]
 mod channels_test;
 
+#[derive(Debug)]
 pub struct Channels {
     channels_map: HashMap<String, HashSet<String>>,
 }

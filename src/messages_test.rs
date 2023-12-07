@@ -93,3 +93,50 @@ fn test_send_msg() {
 
     assert_messages(&msgs, &expected);
 }
+
+#[test]
+fn test_parse_ping() {
+    let msgs = ["PING aaaa", "PING aaaa bbb", "PING"];
+
+    let expected = [
+        UserMessage::Ping { server: "aaaa" },
+        UserMessage::Ping { server: "aaaa" },
+        UserMessage::InvalidMessage,
+    ];
+
+    assert_messages(&msgs, &expected);
+}
+
+#[test]
+fn test_parse_mode() {
+    let msgs = ["MODE #channel1 aaa", "MODE #channel1", "MODE"];
+
+    let expected = [
+        UserMessage::Mode {
+            channel: "#channel1",
+            mode: Some("aaa"),
+        },
+        UserMessage::Mode {
+            channel: "#channel1",
+            mode: None,
+        },
+        UserMessage::InvalidMessage,
+    ];
+
+    assert_messages(&msgs, &expected);
+}
+
+#[test]
+fn test_pass_msg() {
+    let msgs = ["PASS 12345", "PASS 2893749sdofuoui)*(&)(&#H", "PASS"];
+
+    let expected = [
+        UserMessage::Password { password: "12345" },
+        UserMessage::Password {
+            password: "2893749sdofuoui)*(&)(&#H",
+        },
+        UserMessage::InvalidMessage,
+    ];
+
+    assert_messages(&msgs, &expected);
+}

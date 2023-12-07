@@ -5,7 +5,7 @@ use std::{
     net::SocketAddr,
     sync::{Arc, Mutex},
 };
-
+use tokio;
 use tokio::sync::mpsc::Sender;
 
 use crate::{channels::Channels, errorcodes, messages::UserMessage, user::User};
@@ -18,9 +18,9 @@ const HOST: &str = "localhost";
 
 #[derive(Clone)]
 pub struct Connections {
-    connection_map: Arc<Mutex<ConnectionsMap>>,
-    nicks_map: Arc<Mutex<NicksMap>>,
-    channels: Arc<Mutex<Channels>>,
+    pub connection_map: Arc<Mutex<ConnectionsMap>>,
+    pub nicks_map: Arc<Mutex<NicksMap>>,
+    pub channels: Arc<tokio::sync::Mutex<Channels>>,
 }
 
 impl Connections {
@@ -28,7 +28,7 @@ impl Connections {
         Connections {
             connection_map: Arc::new(Mutex::new(HashMap::new())),
             nicks_map: Arc::new(Mutex::new(HashMap::new())),
-            channels: Arc::new(Mutex::new(Channels::new())),
+            channels: Arc::new(tokio::sync::Mutex::new(Channels::new())),
         }
     }
 
@@ -144,7 +144,6 @@ impl UserConnection {
                 ":{} 001 {} :Welcome to the Internet Relay Network, {}!\r\n",
                 HOST, nick, nick
             );
-            dbg!(&welcome_msg);
             self.sender.send(welcome_msg).await?;
             self.authenticated = true;
         }
@@ -205,23 +204,19 @@ impl UserConnection {
         todo!()
     }
 
-    async fn join_channels(&self, channels_names: &[&str], keys: &[&str]) -> Result<()> {
-        let channels = self.connections.channels.lock().unwrap();
-        let nick = self.user.nick.as_ref().context("aaaa")?;
+    async fn join_channels(&mut self, channels_names: &[&str], keys: &[&str]) -> Result<()> {
+        let oclone = self.connections.channels.clone();
+        let mut channels = oclone.lock().await;
+        let nick = self.user.nick.as_ref().context("NICK is not set")?.clone();
 
         for channel_name in channels_names {
-            let nicks = channels.channel_list(channel_name).filter(|s| **s == *nick);
+            channels.join_user(channel_name, &nick);
+            let nicks = channels.channel_list(channel_name).filter(|s| **s != *nick);
+            let iter = [nick.as_str()].into_iter();
+
+            self.send_priv_msg(nicks.map(|s| s.as_str()), "...").await?;
+            self.send_priv_msg(iter, "xxx").await?;
         }
-
-        /*if let (Ok(chans),Some(nick)) = (channels, nick) {
-            for channel_name in channels_names {
-                let nicks = chans
-                    .channel_list(channel_name)
-                    .filter();
-
-
-            }
-        }*/
 
         Ok(())
     }
