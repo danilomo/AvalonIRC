@@ -58,7 +58,6 @@ impl Server {
                     from_client = reader.read_line(&mut message) => {
                         if let Ok(_) = from_client {
                             let msg = parse_message(&message);
-                            println!("{:?}", &msg);
                             let _ = user_connection.handle_message(&msg).await;
                         }
                     },

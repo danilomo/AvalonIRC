@@ -162,7 +162,6 @@ impl UserConnection {
                 errorcodes::ERR_ALREADYREGISTRED,
                 nickname
             );
-            dbg!(&message);
             self.sender.send(message).await?;
         } else {
             self.user.nick = Some(nickname.into());
@@ -200,8 +199,14 @@ impl UserConnection {
         Ok(())
     }
 
-    async fn send_msg_to_channel(&self, channel: &str, message: &str) -> Result<()> {
-        todo!()
+    async fn send_msg_to_channel(&mut self, channel: &str, message: &str) -> Result<()> {
+        let oclone = self.connections.channels.clone();
+        let mut channels = oclone.lock().await;
+        let nick = self.user.nick.as_ref().context("NICK is not set")?.clone();
+        let nicks = channels.channel_list(channel).filter(|s| **s != *nick);
+
+        self.send_priv_msg(nicks.map(|s| s.as_str()), message).await?;
+        Ok(())
     }
 
     async fn join_channels(&mut self, channels_names: &[&str], keys: &[&str]) -> Result<()> {

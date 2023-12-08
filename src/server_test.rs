@@ -95,6 +95,40 @@ async fn test_join_channel() -> Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn test_send_message_to_channel() -> Result<()> {
+    let info = start_server().await;
+    let addr = info.addr;
+
+    let bob = TcpStream::connect(addr).await.unwrap();
+    let mut bob_stream = BufReader::new(bob);
+
+    let joe = TcpStream::connect(addr).await.unwrap();
+    let mut joe_stream = BufReader::new(joe);
+
+    bob_stream.write_all(b"NICK bob\r\n").await?;
+    bob_stream.write_all(b"USER bob bob bob bob\r\n").await?;
+    read_line(&mut bob_stream).await?;
+
+    joe_stream.write_all(b"NICK joe\r\n").await?;
+    joe_stream.write_all(b"USER joe joe joe joe\r\n").await?;
+    read_line(&mut joe_stream).await?;
+
+    bob_stream.write_all(b"JOIN #room1 key\r\n").await?;
+    read_line(&mut bob_stream).await?;
+
+    joe_stream.write_all(b"JOIN #room1 key\r\n").await?;
+    read_line(&mut bob_stream).await?; 
+    read_line(&mut joe_stream).await?;
+
+    bob_stream.write_all(b"PRIVMSG #room1 Oi, meu chapa\r\n").await?;
+    let message_to_joe = read_line(&mut joe_stream).await?;
+
+    assert!(message_to_joe.contains("Oi, meu chapa"));
+
+    Ok(())
+}
+
 struct ServerInfo {
     addr: SocketAddr,
     connections: Connections,

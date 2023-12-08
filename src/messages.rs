@@ -97,12 +97,10 @@ fn parse_nick<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
                     hop_count,
                 }
             } else {
-                println!("Piu");
                 UserMessage::InvalidMessage
             }
         }
         _ => {
-            println!("Piu piu");
             UserMessage::InvalidMessage
         }
     }
