@@ -73,9 +73,11 @@ async fn test_join_channel() -> Result<()> {
 
     bob_stream.write_all(b"JOIN #room1 key\r\n").await?;
     read_line(&mut bob_stream).await?;
+    read_line(&mut bob_stream).await?;
 
     joe_stream.write_all(b"JOIN #room1 key\r\n").await?;
     read_line(&mut bob_stream).await?;
+    read_line(&mut joe_stream).await?;
     read_line(&mut joe_stream).await?;
 
     let channels = info.connections.channels.lock().await;
@@ -114,16 +116,27 @@ async fn test_send_message_to_channel() -> Result<()> {
     joe_stream.write_all(b"USER joe joe joe joe\r\n").await?;
     read_line(&mut joe_stream).await?;
 
+    println!("<----------------------------->");
+
     bob_stream.write_all(b"JOIN #room1 key\r\n").await?;
     read_line(&mut bob_stream).await?;
+    read_line(&mut bob_stream).await?;
+    read_line(&mut bob_stream).await?;
+
+    println!("<----------------------------->");
 
     joe_stream.write_all(b"JOIN #room1 key\r\n").await?;
-    read_line(&mut bob_stream).await?; 
+    read_line(&mut bob_stream).await?;
+    read_line(&mut joe_stream).await?;
+    read_line(&mut joe_stream).await?;
     read_line(&mut joe_stream).await?;
 
-    bob_stream.write_all(b"PRIVMSG #room1 Oi, meu chapa\r\n").await?;
-    let message_to_joe = read_line(&mut joe_stream).await?;
+    println!("<----------------------------->");
 
+    bob_stream
+        .write_all(b"PRIVMSG #room1 Oi, meu chapa\r\n")
+        .await?;
+    let message_to_joe = read_line(&mut joe_stream).await?;
     assert!(message_to_joe.contains("Oi, meu chapa"));
 
     Ok(())
@@ -137,6 +150,7 @@ struct ServerInfo {
 async fn read_line(stream: &mut BufReader<TcpStream>) -> Result<String> {
     let mut resp = String::new();
     stream.read_line(&mut resp).await?;
+    dbg!(&resp);
     return Ok(resp);
 }
 

@@ -35,9 +35,9 @@ impl Server {
 
             tokio::select! {
                 _ = self.new_connection(addr, reader) => {}
-                _ = tokio::signal::ctrl_c() => {
+                /*_ = tokio::signal::ctrl_c() => {
                     return Ok(());
-                }
+                }*/
             };
         }
     }

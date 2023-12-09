@@ -14,7 +14,7 @@ type NicksMap = HashMap<String, Sender<String>>;
 
 use anyhow::{anyhow, Context, Result};
 
-const HOST: &str = "localhost";
+const HOST: &str = "olympus";
 
 #[derive(Clone)]
 pub struct Connections {
@@ -62,8 +62,7 @@ impl Connections {
 
     async fn send_msg_to_nicks(
         &mut self,
-        user: &str,
-        message: &str,
+        message_fn: impl Fn(&str) -> String,
         nicks: impl Iterator<Item = &str>,
     ) {
         let senders = {
@@ -80,7 +79,7 @@ impl Connections {
         };
 
         for (nick, sender) in senders {
-            let message_to_send = format!("{} PRIVMSG {} {}\r\n", user, nick, message);
+            let message_to_send = message_fn(nick);
             sender.send(message_to_send).await;
         }
     }
@@ -192,8 +191,10 @@ impl UserConnection {
             HOST
         );
 
+        let message_fn = |nick: &'_ str| format!("{} PRIVMSG {} {}\r\n", &sender, nick, message);
+
         self.connections
-            .send_msg_to_nicks(&sender, message, receivers)
+            .send_msg_to_nicks(message_fn, receivers)
             .await;
 
         Ok(())
@@ -205,7 +206,18 @@ impl UserConnection {
         let nick = self.user.nick.as_ref().context("NICK is not set")?.clone();
         let nicks = channels.channel_list(channel).filter(|s| **s != *nick);
 
-        self.send_priv_msg(nicks.map(|s| s.as_str()), message).await?;
+        let sender = format!(
+            ":{}!{}@{}",
+            self.user.nick.as_ref().unwrap(),
+            self.user.user.as_ref().unwrap(),
+            HOST
+        );
+
+        let message_fn = |nick: &'_ str| format!("{} PRIVMSG {} {}\r\n", &sender, channel, message);
+
+        self.connections
+            .send_msg_to_nicks(message_fn, nicks.map(|s| s.as_str()))
+            .await;
         Ok(())
     }
 
@@ -217,10 +229,36 @@ impl UserConnection {
         for channel_name in channels_names {
             channels.join_user(channel_name, &nick);
             let nicks = channels.channel_list(channel_name).filter(|s| **s != *nick);
-            let iter = [nick.as_str()].into_iter();
 
-            self.send_priv_msg(nicks.map(|s| s.as_str()), "...").await?;
-            self.send_priv_msg(iter, "xxx").await?;
+            let mut nicks_list = String::new();
+            for n in channels.channel_list(channel_name) {
+                nicks_list.push_str(n);
+                nicks_list.push_str(" ");
+            }
+            nicks_list.pop();
+
+            let sender = format!(
+                ":{}!{}@{}",
+                self.user.nick.as_ref().unwrap(),
+                self.user.user.as_ref().unwrap(),
+                HOST
+            );
+            let message_fn = |nick: &'_ str| format!("{} JOIN {}\r\n", sender, channel_name);
+            self.connections
+                .send_msg_to_nicks(message_fn,  nicks.map(|s| s.as_str()))
+                .await;
+
+            //:odin 331 danilo #rona :No topic is set
+            //:odin 353 = #rona :joe danilo
+            //:odin 366 = #rona :End of NAMES list
+
+            let users_list = format!(
+                ":{} 331 {} {} :No topic is set\r\n:{} {} = {} {}\r\n:{} {} = {} :End of NAMES list\r\n",
+                HOST, nick, channel_name,
+                HOST, errorcodes::RPL_NAMREPLY, channel_name, nicks_list,
+                HOST, errorcodes::RPL_ENDOFNAMES, channel_name
+            );
+            self.sender.send(users_list).await?;
         }
 
         Ok(())

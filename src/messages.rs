@@ -100,9 +100,7 @@ fn parse_nick<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
                 UserMessage::InvalidMessage
             }
         }
-        _ => {
-            UserMessage::InvalidMessage
-        }
+        _ => UserMessage::InvalidMessage,
     }
 }
 
