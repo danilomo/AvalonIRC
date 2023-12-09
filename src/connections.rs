@@ -228,7 +228,7 @@ impl UserConnection {
 
         for channel_name in channels_names {
             channels.join_user(channel_name, &nick);
-            let nicks = channels.channel_list(channel_name).filter(|s| **s != *nick);
+            let nicks = channels.channel_list(channel_name);
 
             let mut nicks_list = String::new();
             for n in channels.channel_list(channel_name) {
@@ -252,13 +252,22 @@ impl UserConnection {
             //:odin 353 = #rona :joe danilo
             //:odin 366 = #rona :End of NAMES list
 
-            let users_list = format!(
-                ":{} 331 {} {} :No topic is set\r\n:{} {} = {} {}\r\n:{} {} = {} :End of NAMES list\r\n",
+            let response = format!(
+                ":{} 331 {} {} :No topic is set \r\n",
                 HOST, nick, channel_name,
+
+            );
+            self.sender.send(response).await?;
+            let response = format!(
+                ":{} {} = {} {} \r\n",
                 HOST, errorcodes::RPL_NAMREPLY, channel_name, nicks_list,
+            );
+            self.sender.send(response).await?;
+            let response = format!(
+                ":{} {} = {} :End of NAMES list \r\n",
                 HOST, errorcodes::RPL_ENDOFNAMES, channel_name
             );
-            self.sender.send(users_list).await?;
+            self.sender.send(response).await?;
         }
 
         Ok(())

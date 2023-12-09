@@ -64,6 +64,7 @@ impl Server {
                     from_server = receiver.recv() => {
                         if let Some(to_send) = from_server {
                             let _ = reader.write(to_send.as_bytes()).await;
+                            let _ = reader.flush().await;
                         }
                     }
                 };
