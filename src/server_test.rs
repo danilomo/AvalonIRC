@@ -71,14 +71,24 @@ async fn test_join_channel() -> Result<()> {
     joe_stream.write_all(b"USER joe joe joe joe\r\n").await?;
     read_line(&mut joe_stream).await?;
 
+    println!("<----------------------------->");
+
     bob_stream.write_all(b"JOIN #room1 key\r\n").await?;
     read_line(&mut bob_stream).await?;
     read_line(&mut bob_stream).await?;
+    read_line(&mut bob_stream).await?;
+    read_line(&mut bob_stream).await?;
+
+    println!("<----------------------------->");
 
     joe_stream.write_all(b"JOIN #room1 key\r\n").await?;
+    read_line(&mut joe_stream).await?;
     read_line(&mut bob_stream).await?;
     read_line(&mut joe_stream).await?;
     read_line(&mut joe_stream).await?;
+    read_line(&mut joe_stream).await?;
+
+    println!("<----------------------------->");
 
     let channels = info.connections.channels.lock().await;
 

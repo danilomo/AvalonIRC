@@ -3,7 +3,7 @@
 use std::{
     collections::HashMap,
     net::SocketAddr,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex}, fmt::format,
 };
 use tokio;
 use tokio::sync::mpsc::Sender;
@@ -206,14 +206,16 @@ impl UserConnection {
         let nick = self.user.nick.as_ref().context("NICK is not set")?.clone();
         let nicks = channels.channel_list(channel).filter(|s| **s != *nick);
 
-        let sender = format!(
-            ":{}!{}@{}",
-            self.user.nick.as_ref().unwrap(),
-            self.user.user.as_ref().unwrap(),
-            HOST
-        );
+        let message_fn = |nick: &'_ str| {
+            let sender = format!(
+                ":{}!{}@{}",
+                self.user.nick.as_ref().unwrap(),
+                self.user.nick.as_ref().unwrap(),
+                HOST
+            );
 
-        let message_fn = |nick: &'_ str| format!("{} PRIVMSG {} {}\r\n", &sender, channel, message);
+            format!("{} PRIVMSG {} :{}\r\n", &sender, channel, message)
+        };
 
         self.connections
             .send_msg_to_nicks(message_fn, nicks.map(|s| s.as_str()))
@@ -237,32 +239,32 @@ impl UserConnection {
             }
             nicks_list.pop();
 
-            let sender = format!(
-                ":{}!{}@{}",
-                self.user.nick.as_ref().unwrap(),
-                self.user.user.as_ref().unwrap(),
-                HOST
-            );
-            let message_fn = |nick: &'_ str| format!("{} JOIN {}\r\n", sender, channel_name);
+            let message_fn = |nick: &'_ str| {
+                let sender = format!(
+                    ":{}!{}@{}",
+                    self.user.nick.as_ref().unwrap(),
+                    self.user.nick.as_ref().unwrap(),
+                    HOST
+                );
+
+                format!("{} JOIN {}\r\n", sender, channel_name)
+            };
             self.connections
                 .send_msg_to_nicks(message_fn,  nicks.map(|s| s.as_str()))
                 .await;
 
-            //:odin 331 danilo #rona :No topic is set
-            //:odin 353 = #rona :joe danilo
-            //:odin 366 = #rona :End of NAMES list
-
             let response = format!(
                 ":{} 331 {} {} :No topic is set \r\n",
                 HOST, nick, channel_name,
-
             );
             self.sender.send(response).await?;
+
             let response = format!(
                 ":{} {} = {} {} \r\n",
                 HOST, errorcodes::RPL_NAMREPLY, channel_name, nicks_list,
             );
             self.sender.send(response).await?;
+            
             let response = format!(
                 ":{} {} = {} :End of NAMES list \r\n",
                 HOST, errorcodes::RPL_ENDOFNAMES, channel_name
@@ -285,6 +287,13 @@ impl UserConnection {
     }
 
     async fn set_mode(&self, channel: &str, mode: Option<&str>) -> Result<()> {
-        todo!()
+        let nick = self.user.nick.as_ref().context("NICK is not set")?.clone();
+
+        self.sender.send(format!(
+            ":{} 324 {} {} +",
+            HOST, nick, channel
+        )).await?;
+
+        Ok(())
     }
 }
