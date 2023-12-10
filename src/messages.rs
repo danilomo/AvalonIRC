@@ -145,7 +145,9 @@ fn parse_join_msg<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
     match &input[..] {
         [channels] => {
             let parts = channels.split(",");
-            let channels = parts.collect::<Vec<&str>>();
+            let channels = parts
+               .map(|c| c.trim())
+               .collect::<Vec<&str>>();
 
             UserMessage::Join {
                 channels,
@@ -154,10 +156,14 @@ fn parse_join_msg<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
         }
         [channels, keys, ..] => {
             let parts = channels.split(",");
-            let channels = parts.collect::<Vec<&str>>();
+            let channels = parts
+                .map(|c| c.trim())            
+                .collect::<Vec<&str>>();
 
             let parts = keys.split(",");
-            let keys = parts.collect::<Vec<&str>>();
+            let keys = parts
+                .map(|c| c.trim())            
+                .collect::<Vec<&str>>();
 
             UserMessage::Join { channels, keys }
         }
@@ -168,11 +174,11 @@ fn parse_join_msg<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
 fn parse_mode_msg<'a>(input: Vec<&'a str>) -> UserMessage<'a> {
     match &input[..] {
         [channel] => UserMessage::Mode {
-            channel,
+            channel: channel.trim(),
             mode: None,
         },
         [channel, mode, ..] => UserMessage::Mode {
-            channel,
+            channel: channel.trim(),
             mode: Some(*mode),
         },
         _ => UserMessage::InvalidMessage,

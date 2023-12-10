@@ -40,6 +40,8 @@ fn test_parse_nick_msg() {
 #[test]
 fn test_parse_join_msg() {
     let msgs = [
+        "JOIN #aaa\r\n",
+        "JOIN #aaa\r\n",
         "JOIN #aaa",
         "JOIN aaa",
         "JOIN #aaa key1",
@@ -47,6 +49,14 @@ fn test_parse_join_msg() {
     ];
 
     let expected = [
+        UserMessage::Join {
+            channels: vec!["#aaa"],
+            keys: vec![],
+        },
+        UserMessage::Join {
+            channels: vec!["#aaa"],
+            keys: vec![],
+        },
         UserMessage::Join {
             channels: vec!["#aaa"],
             keys: vec![],
