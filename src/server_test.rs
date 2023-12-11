@@ -77,12 +77,10 @@ async fn test_join_channel() -> Result<()> {
     read_line(&mut bob_stream).await?;
     read_line(&mut bob_stream).await?;
     read_line(&mut bob_stream).await?;
-    read_line(&mut bob_stream).await?;
 
     println!("<----------------------------->");
 
     joe_stream.write_all(b"JOIN #room1 key\r\n").await?;
-    read_line(&mut joe_stream).await?;
     read_line(&mut bob_stream).await?;
     read_line(&mut joe_stream).await?;
     read_line(&mut joe_stream).await?;
@@ -132,16 +130,16 @@ async fn test_send_message_to_channel() -> Result<()> {
     read_line(&mut bob_stream).await?;
     read_line(&mut bob_stream).await?;
     read_line(&mut bob_stream).await?;
-    read_line(&mut bob_stream).await?;
 
     println!("<----------------------------->");
 
     joe_stream.write_all(b"JOIN #room1 key\r\n").await?;
-    read_line(&mut joe_stream).await?;
     read_line(&mut bob_stream).await?;
     read_line(&mut joe_stream).await?;
     read_line(&mut joe_stream).await?;
     read_line(&mut joe_stream).await?;
+
+    println!("<----------------------------->");
 
     println!("<----------------------------->");
 

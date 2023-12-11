@@ -60,18 +60,14 @@ impl Server {
                             if message.trim().len() == 0 {
                                 continue;
                             }
-                            println!("{} <-|{}|", 
-                            addr.to_string(),
-                            message.trim());
+                            //println!("{} <-|{}|", addr.to_string(), message.trim());
                             let msg = parse_message(&message);
                             let _ = user_connection.handle_message(&msg).await;
                         }
                     },
                     from_server = receiver.recv() => {
                         if let Some(to_send) = from_server {
-                            println!("{} ->|{}|", 
-                            addr.to_string(),
-                            to_send.trim());
+                            //println!("{} ->|{}|",  addr.to_string(), to_send.trim());
                             let _ = reader.write(to_send.as_bytes()).await;
                             let _ = reader.flush().await;
                         }
