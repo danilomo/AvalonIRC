@@ -11,7 +11,7 @@ use tokio::{self, net::TcpListener};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let listener = TcpListener::bind(format!("localhost:6667")).await?;
+    let listener = TcpListener::bind(format!("0.0.0.0:6667")).await?;
     let mut server = Server::new(listener);
 
     server.start_server().await?;

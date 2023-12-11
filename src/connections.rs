@@ -3,7 +3,7 @@
 use std::{
     collections::HashMap,
     net::SocketAddr,
-    sync::{Arc, Mutex}, fmt::format,
+    sync::{Arc, Mutex}, fmt::format, time::Duration,
 };
 use tokio;
 use tokio::sync::mpsc::Sender;
@@ -14,7 +14,7 @@ type NicksMap = HashMap<String, Sender<String>>;
 
 use anyhow::{anyhow, Context, Result};
 
-const HOST: &str = "olympus";
+const HOST: &str = "172.17.0.1";
 
 #[derive(Clone)]
 pub struct Connections {
@@ -44,6 +44,7 @@ impl Connections {
         return Ok(UserConnection {
             connections: self.clone(),
             sender,
+            address,
             user: User::new(),
             authenticated: false,
         });
@@ -87,6 +88,7 @@ impl Connections {
 
 pub struct UserConnection {
     connections: Connections,
+    address: SocketAddr,
     sender: Sender<String>,
     user: User,
     authenticated: bool,
@@ -188,7 +190,7 @@ impl UserConnection {
             ":{}!{}@{}",
             self.user.nick.as_ref().unwrap(),
             self.user.user.as_ref().unwrap(),
-            HOST
+            self.address.to_string()
         );
 
         let message_fn = |nick: &'_ str| format!("{} PRIVMSG {} {}\r\n", &sender, nick, message);
@@ -211,7 +213,7 @@ impl UserConnection {
                 ":{}!{}@{}",
                 self.user.nick.as_ref().unwrap(),
                 self.user.nick.as_ref().unwrap(),
-                HOST
+                self.address.to_string()
             );
 
             format!("{} PRIVMSG {} :{}\r\n", &sender, channel, message)
@@ -239,35 +241,28 @@ impl UserConnection {
             }
             nicks_list.pop();
 
-            let message_fn = |nick: &'_ str| {
-                let sender = format!(
-                    ":{}!{}@{}",
-                    self.user.nick.as_ref().unwrap(),
-                    self.user.nick.as_ref().unwrap(),
-                    HOST
-                );
+            let sender = format!(
+                ":{}!{}@{}",
+                self.user.nick.as_ref().unwrap(),
+                self.user.nick.as_ref().unwrap(),
+                self.address.to_string()
+            );
 
-                format!("{} JOIN {}\r\n", sender, channel_name)
+            let message_fn = |nick: &'_ str| {
+                format!("{} JOIN :{}\r\n", sender, channel_name)
             };
             self.connections
-                .send_msg_to_nicks(message_fn,  nicks.map(|s| s.as_str()))
-                .await;
+                .send_msg_to_nicks(message_fn,  
+                    nicks
+                    .filter(|s| **s != *nick)
+                    .map(|s| s.as_str()))
+                .await;   
 
             let response = format!(
-                ":{} 331 {} {} :No topic is set \r\n",
-                HOST, nick, channel_name,
-            );
-            self.sender.send(response).await?;
-
-            let response = format!(
-                ":{} {} = {} {} \r\n",
-                HOST, errorcodes::RPL_NAMREPLY, channel_name, nicks_list,
-            );
-            self.sender.send(response).await?;
-            
-            let response = format!(
-                ":{} {} = {} :End of NAMES list \r\n",
-                HOST, errorcodes::RPL_ENDOFNAMES, channel_name
+                "{} JOIN :{}\r\n:{} 353 {} = {} :{}\r\n:{} 366 {} {} :End of /NAMES list.\r\n",
+                &sender, channel_name,
+                HOST, nick, channel_name, nicks_list,
+                HOST, nick, channel_name
             );
             self.sender.send(response).await?;
         }
@@ -290,7 +285,7 @@ impl UserConnection {
         let nick = self.user.nick.as_ref().context("NICK is not set")?.clone();
 
         self.sender.send(format!(
-            ":{} 324 {} {} +",
+            ":{} 324 {} {} +\r\n",
             HOST, nick, channel
         )).await?;
 
